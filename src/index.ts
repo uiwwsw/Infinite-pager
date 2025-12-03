@@ -57,9 +57,13 @@ export interface InfinitePaperReturn<T> {
   pages: Map<number, PageRecord<T>>;
   /**
    * Recenter the window and request the page. The consumer should scroll their
-   * virtual list to `globalIndex` (0-based) returned from the promise.
+   * virtual list to `globalIndex` (0-based) returned from the promise. The
+   * returned `targetWindowOffset` reflects the window after the jump so the
+   * caller can compute the scrollTop in a single calculation.
    */
-  scrollToPage: (page: number) => Promise<{ targetGlobalIndex: number }>;
+  scrollToPage: (
+    page: number
+  ) => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
   /**
    * Convert a visible range (relative to the window items) into pagination
    * updates and window shifting when the user scrolls.
@@ -196,15 +200,14 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
   const scrollToPage = useCallback(
     async (targetPage: number) => {
       const clamped = Math.min(Math.max(1, targetPage), totalPages);
+      const desiredWindow = clampWindow(clamped, totalPages, Math.max(1, windowSize));
+
       setCurrentPage(clamped);
-      setPageWindow((prev) => {
-        if (clamped >= prev.startPage && clamped <= prev.endPage) {
-          return prev;
-        }
-        return clampWindow(clamped, totalPages, Math.max(1, windowSize));
-      });
+      setPageWindow(desiredWindow);
+
       const targetGlobalIndex = (clamped - 1) * pageSize;
-      return { targetGlobalIndex };
+      const targetWindowOffset = (desiredWindow.startPage - 1) * pageSize;
+      return { targetGlobalIndex, targetWindowOffset };
     },
     [pageSize, totalPages, windowSize]
   );
@@ -251,6 +254,17 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
       const nearTop = topPage <= pageWindow.startPage + prefetchThresholdPages;
       const nearBottom = bottomPage >= pageWindow.endPage - prefetchThresholdPages;
+
+      if (indicesAreGlobal) {
+        const desiredWindow = clampWindow(nextPage, totalPages, Math.max(1, windowSize));
+        if (
+          desiredWindow.startPage !== pageWindow.startPage ||
+          desiredWindow.endPage !== pageWindow.endPage
+        ) {
+          setPageWindow(desiredWindow);
+        }
+        return;
+      }
 
       if (nearTop && pageWindow.startPage > 1) {
         const target = Math.max(1, topPage);
