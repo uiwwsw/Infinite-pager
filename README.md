@@ -8,6 +8,7 @@ A headless React helper that marries infinite scroll and numbered pagination wit
 - **Jump without over-fetching**: `scrollToPage` recenters the window around the target page instead of loading everything in between.
 - **Viewport-aware**: `handleVisibleRange` converts virtual list indices into the current page and shifts the window when you approach the edges.
 - **Placeholder-friendly**: exposes `isPlaceholder` on each item so you can render skeleton rows while the page is loading.
+- **Built-in pagination UI**: includes a lightweight `Pagination` component wired to the hook's pagination data.
 
 ## Installation
 
@@ -21,7 +22,7 @@ Peer dependency: React 17+.
 
 ```tsx
 import { FixedSizeList } from "react-window";
-import useInfinitePaper from "@uiwwsw/infinitePaper";
+import useInfinitePaper, { Pagination } from "@uiwwsw/infinitePaper";
 
 function Example() {
   const pageSize = 20;
@@ -59,6 +60,11 @@ function Example() {
           );
         }}
       </FixedSizeList>
+
+      <Pagination
+        items={infinite.paginationItems}
+        onPageChange={(page) => infinite.scrollToPage(page)}
+      />
     </div>
   );
 }
@@ -137,6 +143,10 @@ function AmazonPager({ infinite }: { infinite: ReturnType<typeof useInfinitePape
 - `pages: Map<number, PageRecord<T>>` – raw page states (status, items, error).
 - `scrollToPage(page)` – recenters the window; returns `{ targetGlobalIndex }`.
 - `handleVisibleRange(start, stop)` – feed this the visible item indices from your virtual list.
+- `setPage(page)` / `goToNextPage()` – convenience wrappers around `scrollToPage` for button or keyboard handlers.
+- `onVisibleBottom()` – helper you can pass to an infinite scroll sentinel; uses the pagination rules in this hook.
+- `hasNextPage` – whether another page exists beyond `currentPage`.
+- `infiniteScrollOptions` – `{ onVisible, root, rootMargin }` prepared for an `IntersectionObserver` sentinel.
 - `reloadPage(page)` – marks a page as idle so it refetches next render cycle.
 - `pageSize` and `totalPages` – echoed for convenience.
 
