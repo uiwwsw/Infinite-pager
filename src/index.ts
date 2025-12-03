@@ -71,8 +71,21 @@ export interface InfinitePaperReturn<T> {
   handleVisibleRange: (visibleStartIndex: number, visibleStopIndex: number) => void;
   /** Manually invalidate and refetch a page within the current window. */
   reloadPage: (page: number) => void;
+  /** Highest page that has been reached through scrolling or jumps. */
+  maxAccessiblePage: number;
+  /** Pagination structure following Amazon's pagination visibility rules. */
+  paginationItems: PaginationItem[];
   pageSize: number;
   totalPages: number;
+}
+
+export type PaginationItemType = "page" | "ellipsis" | "prev" | "next";
+
+export interface PaginationItem {
+  type: PaginationItemType;
+  page?: number;
+  isCurrent?: boolean;
+  disabled?: boolean;
 }
 
 function clampWindow(targetPage: number, totalPages: number, windowSize: number): PageWindow {
@@ -84,6 +97,63 @@ function clampWindow(targetPage: number, totalPages: number, windowSize: number)
 
 function pageFromIndex(index: number, pageSize: number): number {
   return Math.floor(index / pageSize) + 1;
+}
+
+function buildAmazonStylePagination(
+  currentPage: number,
+  maxAccessiblePage: number
+): PaginationItem[] {
+  if (maxAccessiblePage < 1) return [];
+
+  const clampedCurrent = Math.min(Math.max(1, currentPage), maxAccessiblePage);
+  const items: PaginationItem[] = [];
+  const addPage = (page: number) => {
+    items.push({ type: "page", page, isCurrent: page === clampedCurrent });
+  };
+  const addEllipsis = () => items.push({ type: "ellipsis" });
+
+  items.push({
+    type: "prev",
+    page: Math.max(1, clampedCurrent - 1),
+    disabled: clampedCurrent <= 1,
+  });
+
+  const maxSlots = 7;
+  const total = maxAccessiblePage;
+
+  if (total <= maxSlots) {
+    for (let page = 1; page <= total; page += 1) {
+      addPage(page);
+    }
+  } else if (clampedCurrent <= 4) {
+    for (let page = 1; page <= 5; page += 1) {
+      addPage(page);
+    }
+    addEllipsis();
+    addPage(total);
+  } else if (clampedCurrent >= total - 3) {
+    addPage(1);
+    addEllipsis();
+    for (let page = total - 4; page <= total; page += 1) {
+      addPage(page);
+    }
+  } else {
+    addPage(1);
+    addEllipsis();
+    for (let page = clampedCurrent - 1; page <= clampedCurrent + 1; page += 1) {
+      addPage(page);
+    }
+    addEllipsis();
+    addPage(total);
+  }
+
+  items.push({
+    type: "next",
+    page: Math.min(total, clampedCurrent + 1),
+    disabled: clampedCurrent >= total,
+  });
+
+  return items;
 }
 
 export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfinitePaperReturn<T> {
@@ -103,6 +173,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [pages, setPages] = useState<Map<number, PageRecord<T>>>(new Map());
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [maxAccessiblePage, setMaxAccessiblePage] = useState<number>(0);
 
   const windowOffset = useMemo(
     () => (pageWindow.startPage - 1) * pageSize,
@@ -207,6 +278,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
       const targetGlobalIndex = (clamped - 1) * pageSize;
       const targetWindowOffset = (desiredWindow.startPage - 1) * pageSize;
+      setMaxAccessiblePage((prev) => Math.max(prev, clamped));
       return { targetGlobalIndex, targetWindowOffset };
     },
     [pageSize, totalPages, windowSize]
@@ -248,6 +320,8 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
         setCurrentPage(nextPage);
         onPageChange?.(nextPage);
       }
+
+      setMaxAccessiblePage((prev) => Math.max(prev, Math.min(totalPages, nextPage)));
 
       const topPage = pageFromIndex(globalStart, pageSize);
       const bottomPage = pageFromIndex(globalStop, pageSize);
@@ -297,6 +371,11 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     return result;
   }, [pageSize, pageWindow.endPage, pageWindow.startPage, pages, windowOffset]);
 
+  const paginationItems = useMemo(
+    () => buildAmazonStylePagination(currentPage, maxAccessiblePage),
+    [currentPage, maxAccessiblePage]
+  );
+
   return {
     items,
     pageWindow,
@@ -307,6 +386,8 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     scrollToPage,
     handleVisibleRange,
     reloadPage,
+    maxAccessiblePage,
+    paginationItems,
     pageSize,
     totalPages,
   };
