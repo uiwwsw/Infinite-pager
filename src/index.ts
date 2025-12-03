@@ -405,3 +405,4 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 }
 
 export default useInfinitePaper;
+export { useInfinitePagination } from "./components/ui/pagination/useInfinitePagination";
