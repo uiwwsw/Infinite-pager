@@ -275,6 +275,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
       setCurrentPage(clamped);
       setPageWindow(desiredWindow);
+      setMaxAccessiblePage((prev) => Math.max(prev, clamped));
 
       const targetGlobalIndex = (clamped - 1) * pageSize;
       const targetWindowOffset = (desiredWindow.startPage - 1) * pageSize;
