@@ -33,8 +33,6 @@ export interface InfinitePaperOptions<T> {
   prefetchThresholdPages?: number;
   fetchPage: (page: number) => Promise<T[]>;
   onPageChange?: (page: number) => void;
-  scrollContainer?: Element | null;
-  rootMargin?: string;
 }
 
 export interface PaperItem<T> {
@@ -71,7 +69,10 @@ export interface InfinitePaperReturn<T> {
    * Convert a visible range (relative to the window items) into pagination
    * updates and window shifting when the user scrolls.
    */
-  handleVisibleRange: (visibleStartIndex: number, visibleStopIndex: number) => void;
+  handleVisibleRange: (
+    visibleStartIndex: number,
+    visibleStopIndex: number
+  ) => void;
   /** Manually invalidate and refetch a page within the current window. */
   reloadPage: (page: number) => void;
   /** Highest page that has been reached through scrolling or jumps. */
@@ -80,22 +81,18 @@ export interface InfinitePaperReturn<T> {
   paginationItems: PaginationItem[];
   pageSize: number;
   totalPages: number;
-  setPage: (
-    page: number
-  ) => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
-  goToNextPage: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
-  onVisibleBottom: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
-  hasNextPage: boolean;
-  infiniteScrollOptions: {
-    onVisible: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
-    root?: Element | null;
-    rootMargin?: string;
-  };
 }
 
-function clampWindow(targetPage: number, totalPages: number, windowSize: number): PageWindow {
+function clampWindow(
+  targetPage: number,
+  totalPages: number,
+  windowSize: number
+): PageWindow {
   const half = Math.floor(windowSize / 2);
-  const startPage = Math.max(1, Math.min(targetPage - half, totalPages - windowSize + 1));
+  const startPage = Math.max(
+    1,
+    Math.min(targetPage - half, totalPages - windowSize + 1)
+  );
   const endPage = Math.min(totalPages, startPage + windowSize - 1);
   return { startPage, endPage };
 }
@@ -161,7 +158,9 @@ function buildAmazonStylePagination(
   return items;
 }
 
-export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfinitePaperReturn<T> {
+export function useInfinitePaper<T>(
+  options: InfinitePaperOptions<T>
+): InfinitePaperReturn<T> {
   const {
     pageSize,
     totalPages,
@@ -170,8 +169,6 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     initialPage = 1,
     prefetchThresholdPages = 1,
     onPageChange,
-    scrollContainer,
-    rootMargin,
   } = options;
 
   const [pageWindow, setPageWindow] = useState<PageWindow>(() =>
@@ -192,7 +189,11 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
   useEffect(() => {
     setPages((prev) => {
       const next = new Map<number, PageRecord<T>>();
-      for (let page = pageWindow.startPage; page <= pageWindow.endPage; page += 1) {
+      for (
+        let page = pageWindow.startPage;
+        page <= pageWindow.endPage;
+        page += 1
+      ) {
         const existing = prev.get(page);
         if (existing) {
           next.set(page, existing);
@@ -272,14 +273,20 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
   // Keep isFetching in sync when all pages are already loaded/loading state flips.
   useEffect(() => {
-    const loading = Array.from(pages.values()).some((page) => page.status === "loading");
+    const loading = Array.from(pages.values()).some(
+      (page) => page.status === "loading"
+    );
     setIsFetching(loading);
   }, [pages]);
 
   const scrollToPage = useCallback(
     async (targetPage: number) => {
       const clamped = Math.min(Math.max(1, targetPage), totalPages);
-      const desiredWindow = clampWindow(clamped, totalPages, Math.max(1, windowSize));
+      const desiredWindow = clampWindow(
+        clamped,
+        totalPages,
+        Math.max(1, windowSize)
+      );
 
       setCurrentPage(clamped);
       setPageWindow(desiredWindow);
@@ -304,6 +311,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
   const handleVisibleRange = useCallback(
     (visibleStartIndex: number, visibleStopIndex: number) => {
+      console.log(visibleStartIndex, visibleStopIndex);
       // Support both window-relative and absolute indices from virtualizers.
       // If the indices do not map inside the current window, treat them as
       // global so that large jumps (e.g., jumping from page 1 to 1000) re-center
@@ -341,14 +349,22 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
         onPageChange?.(nextPage);
       }
 
-      const furthestVisiblePage = Math.min(totalPages, Math.max(topPage, bottomPage));
+      const furthestVisiblePage = Math.min(
+        totalPages,
+        Math.max(topPage, bottomPage)
+      );
       setMaxAccessiblePage((prev) => Math.max(prev, furthestVisiblePage));
 
       const nearTop = topPage <= pageWindow.startPage + prefetchThresholdPages;
-      const nearBottom = bottomPage >= pageWindow.endPage - prefetchThresholdPages;
+      const nearBottom =
+        bottomPage >= pageWindow.endPage - prefetchThresholdPages;
 
       if (indicesAreGlobal) {
-        const desiredWindow = clampWindow(nextPage, totalPages, Math.max(1, windowSize));
+        const desiredWindow = clampWindow(
+          nextPage,
+          totalPages,
+          Math.max(1, windowSize)
+        );
         if (
           desiredWindow.startPage !== pageWindow.startPage ||
           desiredWindow.endPage !== pageWindow.endPage
@@ -366,13 +382,27 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
         setPageWindow(clampWindow(target, totalPages, Math.max(1, windowSize)));
       }
     },
-    [currentPage, onPageChange, pageSize, pageWindow.endPage, pageWindow.startPage, prefetchThresholdPages, totalPages, windowOffset, windowSize]
+    [
+      currentPage,
+      onPageChange,
+      pageSize,
+      pageWindow.endPage,
+      pageWindow.startPage,
+      prefetchThresholdPages,
+      totalPages,
+      windowOffset,
+      windowSize,
+    ]
   );
 
   const items = useMemo<PaperItem<T>[]>(() => {
     const result: PaperItem<T>[] = [];
     let offset = 0;
-    for (let page = pageWindow.startPage; page <= pageWindow.endPage; page += 1) {
+    for (
+      let page = pageWindow.startPage;
+      page <= pageWindow.endPage;
+      page += 1
+    ) {
       const record = pages.get(page);
       for (let i = 0; i < pageSize; i += 1) {
         const item = record?.items?.[i];
@@ -381,7 +411,10 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
           indexInPage: i,
           globalIndex: windowOffset + offset,
           item,
-          isPlaceholder: !record || record.status !== "loaded" || typeof item === "undefined",
+          isPlaceholder:
+            !record ||
+            record.status !== "loaded" ||
+            typeof item === "undefined",
         });
         offset += 1;
       }
@@ -392,40 +425,6 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
   const paginationItems = useMemo(
     () => buildAmazonStylePagination(currentPage, maxAccessiblePage),
     [currentPage, maxAccessiblePage]
-  );
-
-  const hasNextPage = currentPage < totalPages;
-
-  const setPage = useCallback(
-    (page: number) => scrollToPage(page),
-    [scrollToPage]
-  );
-
-  const goToNextPage = useCallback(
-    () => scrollToPage(currentPage + 1),
-    [currentPage, scrollToPage]
-  );
-
-  const onVisibleBottom = useCallback(
-    () => {
-      if (!hasNextPage) {
-        return Promise.resolve({
-          targetGlobalIndex: (currentPage - 1) * pageSize,
-          targetWindowOffset: windowOffset,
-        });
-      }
-      return goToNextPage();
-    },
-    [currentPage, goToNextPage, hasNextPage, pageSize, windowOffset]
-  );
-
-  const infiniteScrollOptions = useMemo(
-    () => ({
-      onVisible: onVisibleBottom,
-      root: scrollContainer ?? null,
-      rootMargin,
-    }),
-    [onVisibleBottom, rootMargin, scrollContainer]
   );
 
   return {
@@ -442,11 +441,6 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     paginationItems,
     pageSize,
     totalPages,
-    setPage,
-    goToNextPage,
-    onVisibleBottom,
-    hasNextPage,
-    infiniteScrollOptions,
   };
 }
 
