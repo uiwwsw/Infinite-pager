@@ -347,10 +347,10 @@ export function useInfinitePaper<T>(
   );
 
   const onVisibleBottom = useCallback(async () => {
-    if (!hasNextPage) return;
+    if (!hasNextPage || isFetching) return;
     const target = Math.min(totalPages, Math.max(currentPage + 1, maxAccessiblePage + 1));
     await scrollToPage(target);
-  }, [currentPage, hasNextPage, maxAccessiblePage, scrollToPage, totalPages]);
+  }, [currentPage, hasNextPage, isFetching, maxAccessiblePage, scrollToPage, totalPages]);
 
   const infiniteScrollOptions = useMemo(
     () => ({
@@ -363,7 +363,6 @@ export function useInfinitePaper<T>(
 
   const handleVisibleRange = useCallback(
     (visibleStartIndex: number, visibleStopIndex: number) => {
-      console.log(visibleStartIndex, visibleStopIndex);
       // Support both window-relative and absolute indices from virtualizers.
       // If the indices do not map inside the current window, treat them as
       // global so that large jumps (e.g., jumping from page 1 to 1000) re-center
