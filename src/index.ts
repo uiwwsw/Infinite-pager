@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PaginationItem } from "./paginationTypes";
 
 export type PageStatus = "idle" | "loading" | "loaded" | "error";
 
@@ -32,6 +33,8 @@ export interface InfinitePaperOptions<T> {
   prefetchThresholdPages?: number;
   fetchPage: (page: number) => Promise<T[]>;
   onPageChange?: (page: number) => void;
+  scrollContainer?: Element | null;
+  rootMargin?: string;
 }
 
 export interface PaperItem<T> {
@@ -77,15 +80,17 @@ export interface InfinitePaperReturn<T> {
   paginationItems: PaginationItem[];
   pageSize: number;
   totalPages: number;
-}
-
-export type PaginationItemType = "page" | "ellipsis" | "prev" | "next";
-
-export interface PaginationItem {
-  type: PaginationItemType;
-  page?: number;
-  isCurrent?: boolean;
-  disabled?: boolean;
+  setPage: (
+    page: number
+  ) => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+  goToNextPage: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+  onVisibleBottom: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+  hasNextPage: boolean;
+  infiniteScrollOptions: {
+    onVisible: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+    root?: Element | null;
+    rootMargin?: string;
+  };
 }
 
 function clampWindow(targetPage: number, totalPages: number, windowSize: number): PageWindow {
@@ -165,6 +170,8 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     initialPage = 1,
     prefetchThresholdPages = 1,
     onPageChange,
+    scrollContainer,
+    rootMargin,
   } = options;
 
   const [pageWindow, setPageWindow] = useState<PageWindow>(() =>
@@ -387,6 +394,40 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     [currentPage, maxAccessiblePage]
   );
 
+  const hasNextPage = currentPage < totalPages;
+
+  const setPage = useCallback(
+    (page: number) => scrollToPage(page),
+    [scrollToPage]
+  );
+
+  const goToNextPage = useCallback(
+    () => scrollToPage(currentPage + 1),
+    [currentPage, scrollToPage]
+  );
+
+  const onVisibleBottom = useCallback(
+    () => {
+      if (!hasNextPage) {
+        return Promise.resolve({
+          targetGlobalIndex: (currentPage - 1) * pageSize,
+          targetWindowOffset: windowOffset,
+        });
+      }
+      return goToNextPage();
+    },
+    [currentPage, goToNextPage, hasNextPage, pageSize, windowOffset]
+  );
+
+  const infiniteScrollOptions = useMemo(
+    () => ({
+      onVisible: onVisibleBottom,
+      root: scrollContainer ?? null,
+      rootMargin,
+    }),
+    [onVisibleBottom, rootMargin, scrollContainer]
+  );
+
   return {
     items,
     pageWindow,
@@ -401,8 +442,15 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
     paginationItems,
     pageSize,
     totalPages,
+    setPage,
+    goToNextPage,
+    onVisibleBottom,
+    hasNextPage,
+    infiniteScrollOptions,
   };
 }
 
 export default useInfinitePaper;
-export { useInfinitePagination } from "./components/ui/pagination/useInfinitePagination";
+export { Pagination } from "./components/Pagination";
+export type { PaginationProps } from "./components/Pagination";
+export type { PaginationItem, PaginationItemType } from "./paginationTypes";
