@@ -86,6 +86,38 @@ function Pager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>
 }
 ```
 
+### Amazon-style pagination data
+
+`useInfinitePaper` keeps track of the highest page the user has actually scrolled to
+or jumped toward via `scrollToPage`. The `paginationItems` field exposes a list of
+Amazon-like pagination controls that only become clickable after the user has
+visited them. This prevents showing deep links like “1000” before the user has
+progressed that far.
+
+```tsx
+function AmazonPager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>> }) {
+  return (
+    <nav aria-label="Pagination">
+      {infinite.paginationItems.map((item, index) => {
+        if (item.type === "ellipsis") return <span key={index}>…</span>;
+        return (
+          <button
+            key={index}
+            disabled={item.disabled}
+            aria-current={item.isCurrent || undefined}
+            onClick={() => item.page && infinite.scrollToPage(item.page)}
+          >
+            {item.type === "prev" && "Prev"}
+            {item.type === "next" && "Next"}
+            {item.type === "page" && item.page}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+```
+
 ### Key concepts
 
 - **Window size**: `windowSize` controls how many pages stay in memory at once. The window always remains contiguous.
