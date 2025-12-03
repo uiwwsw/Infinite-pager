@@ -321,10 +321,11 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
         onPageChange?.(nextPage);
       }
 
-      setMaxAccessiblePage((prev) => Math.max(prev, Math.min(totalPages, nextPage)));
-
       const topPage = pageFromIndex(globalStart, pageSize);
       const bottomPage = pageFromIndex(globalStop, pageSize);
+
+      const furthestVisiblePage = Math.min(totalPages, Math.max(topPage, bottomPage));
+      setMaxAccessiblePage((prev) => Math.max(prev, furthestVisiblePage));
 
       const nearTop = topPage <= pageWindow.startPage + prefetchThresholdPages;
       const nearBottom = bottomPage >= pageWindow.endPage - prefetchThresholdPages;
