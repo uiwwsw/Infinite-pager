@@ -88,11 +88,11 @@ function Pager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>
 
 ### Amazon-style pagination data
 
-`useInfinitePaper` keeps track of the highest page the user has actually scrolled to
-or jumped toward via `scrollToPage`. The `paginationItems` field exposes a list of
-Amazon-like pagination controls that only become clickable after the user has
-visited them. This prevents showing deep links like “1000” before the user has
-progressed that far.
+`useInfinitePaper` keeps track of the highest page the user has actually scrolled to.
+The `paginationItems` field exposes a list of Amazon-like pagination controls that
+only become clickable after the user has visited them through scrolling. This
+prevents showing deep links like “1000” before the user has progressed that far
+in the scroll experience.
 
 ```tsx
 function AmazonPager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>> }) {
