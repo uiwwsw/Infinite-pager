@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type PageStatus = "idle" | "loading" | "loaded" | "error";
 
@@ -174,6 +174,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
   const [pages, setPages] = useState<Map<number, PageRecord<T>>>(new Map());
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [maxAccessiblePage, setMaxAccessiblePage] = useState<number>(0);
+  const pendingJumpPage = useRef<number | null>(null);
 
   const windowOffset = useMemo(
     () => (pageWindow.startPage - 1) * pageSize,
@@ -276,6 +277,7 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
       setCurrentPage(clamped);
       setPageWindow(desiredWindow);
       setMaxAccessiblePage((prev) => Math.max(prev, clamped));
+      pendingJumpPage.current = clamped;
 
       const targetGlobalIndex = (clamped - 1) * pageSize;
       const targetWindowOffset = (desiredWindow.startPage - 1) * pageSize;
@@ -314,15 +316,23 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
         ? visibleStartIndex
         : startFromWindow;
       const globalStop = indicesAreGlobal ? visibleStopIndex : stopFromWindow;
-      const nextPage = pageFromIndex(globalStart, pageSize);
+      const topPage = pageFromIndex(globalStart, pageSize);
+      const bottomPage = pageFromIndex(globalStop, pageSize);
+      let nextPage = pageFromIndex(globalStart, pageSize);
+
+      if (
+        pendingJumpPage.current &&
+        pendingJumpPage.current >= topPage &&
+        pendingJumpPage.current <= bottomPage
+      ) {
+        nextPage = pendingJumpPage.current;
+        pendingJumpPage.current = null;
+      }
 
       if (nextPage !== currentPage) {
         setCurrentPage(nextPage);
         onPageChange?.(nextPage);
       }
-
-      const topPage = pageFromIndex(globalStart, pageSize);
-      const bottomPage = pageFromIndex(globalStop, pageSize);
 
       const furthestVisiblePage = Math.min(totalPages, Math.max(topPage, bottomPage));
       setMaxAccessiblePage((prev) => Math.max(prev, furthestVisiblePage));
