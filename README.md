@@ -90,7 +90,7 @@ function Pager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>
 
 - **Window size**: `windowSize` controls how many pages stay in memory at once. The window always remains contiguous.
 - **Window offset**: `windowOffset` tells you the global index of the first item in the window. Use it if you need to align external scroll positions.
-- **Visible range callback**: `handleVisibleRange` translates the visible indices (0-based within the current window) into a page number, triggers `onPageChange`, and recenters the window when you scroll near its edges.
+- **Visible range callback**: `handleVisibleRange` translates the visible indices into a page number, triggers `onPageChange`, and recenters the window when you scroll near its edges. It accepts either indices relative to the current window _or_ absolute indices from virtualizers configured with the total item count.
 - **Jumping**: `scrollToPage(page)` recenters around `page` and returns the global index for that page so you can `scrollToItem` in your virtual list.
 
 ## API

@@ -220,8 +220,19 @@ export function useInfinitePaper<T>(options: InfinitePaperOptions<T>): InfiniteP
 
   const handleVisibleRange = useCallback(
     (visibleStartIndex: number, visibleStopIndex: number) => {
-      const globalStart = windowOffset + visibleStartIndex;
-      const globalStop = windowOffset + visibleStopIndex;
+      // Support both window-relative and absolute indices from virtualizers.
+      // If the visible indices exceed the current window length, treat them as
+      // absolute positions to avoid stepwise jumps when users jump across
+      // large page ranges.
+      const windowLength = windowSize * pageSize;
+      const indicesAreGlobal =
+        visibleStartIndex >= windowLength || visibleStopIndex >= windowLength;
+      const globalStart = indicesAreGlobal
+        ? visibleStartIndex
+        : windowOffset + visibleStartIndex;
+      const globalStop = indicesAreGlobal
+        ? visibleStopIndex
+        : windowOffset + visibleStopIndex;
       const nextPage = pageFromIndex(globalStart, pageSize);
 
       if (nextPage !== currentPage) {
