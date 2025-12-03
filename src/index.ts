@@ -33,6 +33,14 @@ export interface InfinitePaperOptions<T> {
   prefetchThresholdPages?: number;
   fetchPage: (page: number) => Promise<T[]>;
   onPageChange?: (page: number) => void;
+  /**
+   * Optional scroll container for infinite scroll helpers. Defaults to the viewport.
+   */
+  scrollContainer?: Element | null;
+  /**
+   * Root margin to use for the intersection observer helpers. Defaults to undefined.
+   */
+  rootMargin?: string;
 }
 
 export interface PaperItem<T> {
@@ -65,6 +73,12 @@ export interface InfinitePaperReturn<T> {
   scrollToPage: (
     page: number
   ) => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+  /** Convenience alias for scrollToPage. */
+  setPage: (
+    page: number
+  ) => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
+  /** Jump forward a single page if possible. */
+  goToNextPage: () => Promise<{ targetGlobalIndex: number; targetWindowOffset: number }>;
   /**
    * Convert a visible range (relative to the window items) into pagination
    * updates and window shifting when the user scrolls.
@@ -77,8 +91,14 @@ export interface InfinitePaperReturn<T> {
   reloadPage: (page: number) => void;
   /** Highest page that has been reached through scrolling or jumps. */
   maxAccessiblePage: number;
+  /** Whether another page exists beyond the current maximum. */
+  hasNextPage: boolean;
   /** Pagination structure following Amazon's pagination visibility rules. */
   paginationItems: PaginationItem[];
+  /** Trigger fetching the next page when an infinite scroll sentinel becomes visible. */
+  onVisibleBottom: () => Promise<void>;
+  /** Prepared options for an IntersectionObserver sentinel. */
+  infiniteScrollOptions: { onVisible: () => Promise<void>; root: Element | null; rootMargin?: string };
   pageSize: number;
   totalPages: number;
 }
@@ -169,6 +189,8 @@ export function useInfinitePaper<T>(
     initialPage = 1,
     prefetchThresholdPages = 1,
     onPageChange,
+    scrollContainer = null,
+    rootMargin,
   } = options;
 
   const [pageWindow, setPageWindow] = useState<PageWindow>(() =>
@@ -177,7 +199,7 @@ export function useInfinitePaper<T>(
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [pages, setPages] = useState<Map<number, PageRecord<T>>>(new Map());
   const [isFetching, setIsFetching] = useState<boolean>(false);
-  const [maxAccessiblePage, setMaxAccessiblePage] = useState<number>(0);
+  const [maxAccessiblePage, setMaxAccessiblePage] = useState<number>(initialPage);
   const pendingJumpPage = useRef<number | null>(null);
 
   const windowOffset = useMemo(
@@ -309,9 +331,38 @@ export function useInfinitePaper<T>(
     });
   }, []);
 
+  const setPage = useCallback(
+    async (page: number) => scrollToPage(page),
+    [scrollToPage]
+  );
+
+  const goToNextPage = useCallback(
+    async () => scrollToPage(currentPage + 1),
+    [currentPage, scrollToPage]
+  );
+
+  const hasNextPage = useMemo(
+    () => maxAccessiblePage < totalPages,
+    [maxAccessiblePage, totalPages]
+  );
+
+  const onVisibleBottom = useCallback(async () => {
+    if (!hasNextPage || isFetching) return;
+    const target = Math.min(totalPages, Math.max(currentPage + 1, maxAccessiblePage + 1));
+    await scrollToPage(target);
+  }, [currentPage, hasNextPage, isFetching, maxAccessiblePage, scrollToPage, totalPages]);
+
+  const infiniteScrollOptions = useMemo(
+    () => ({
+      onVisible: onVisibleBottom,
+      root: scrollContainer,
+      rootMargin,
+    }),
+    [onVisibleBottom, rootMargin, scrollContainer]
+  );
+
   const handleVisibleRange = useCallback(
     (visibleStartIndex: number, visibleStopIndex: number) => {
-      console.log(visibleStartIndex, visibleStopIndex);
       // Support both window-relative and absolute indices from virtualizers.
       // If the indices do not map inside the current window, treat them as
       // global so that large jumps (e.g., jumping from page 1 to 1000) re-center
@@ -435,10 +486,15 @@ export function useInfinitePaper<T>(
     isFetching,
     pages,
     scrollToPage,
+    setPage,
+    goToNextPage,
     handleVisibleRange,
     reloadPage,
     maxAccessiblePage,
+    hasNextPage,
     paginationItems,
+    onVisibleBottom,
+    infiniteScrollOptions,
     pageSize,
     totalPages,
   };
