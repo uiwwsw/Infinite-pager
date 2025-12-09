@@ -117,11 +117,13 @@ export const InfinitePaperDemo: Story = {
       totalPages,
       windowSize,
       fetchPage,
-      scrollContainer: containerRef.current,
       rootMargin,
     });
 
-    const totalItemCount = resolvedPageSize * resolvedTotalPages;
+    const totalItemCount = resolvedTotalPages * resolvedPageSize;
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    const getHeaderHeight = () => headerRef.current?.clientHeight ?? 0;
 
     useEffect(() => {
       const container = containerRef.current;
@@ -130,11 +132,15 @@ export const InfinitePaperDemo: Story = {
       let rafId: number;
       const syncVisibleRange = () => {
         if (isJumping.current) return;
-        const start = Math.floor(container.scrollTop / itemHeight);
-        const end = Math.min(
-          totalItemCount - 1,
-          Math.floor((container.scrollTop + container.clientHeight) / itemHeight)
-        );
+        const headerHeight = getHeaderHeight();
+        // Adjust for header
+        const scrollTop = Math.max(0, container.scrollTop - headerHeight);
+
+        const start = Math.floor(scrollTop / itemHeight);
+        // Ensure we don't calculate beyond total items
+        const rawEnd = Math.floor((scrollTop + container.clientHeight) / itemHeight);
+        const end = Math.min(totalItemCount - 1, rawEnd);
+
         handleVisibleRange(start, end);
       };
 
@@ -157,12 +163,6 @@ export const InfinitePaperDemo: Story = {
 
       const diff = windowOffset - previousWindowOffset.current;
       if (diff !== 0) {
-        // Only adjust scroll if we are NOT jumping, OR if we are jumping but need to correct for window shift.
-        // Actually, if we are jumping, scrollToGlobalIndex will handle the final position.
-        // But window shift happens during render.
-        // If we are jumping, we rely on scrollToGlobalIndex to set the final scrollTop.
-        // However, if the window shifts *before* we scroll, we might need to adjust?
-        // Let's trust scrollToGlobalIndex to be called after setPage returns.
         if (!isJumping.current) {
           container.scrollTop += diff * itemHeight;
         }
@@ -185,7 +185,8 @@ export const InfinitePaperDemo: Story = {
     const scrollToGlobalIndex = useCallback((globalIndex: number) => {
       const container = containerRef.current;
       if (!container) return;
-      container.scrollTo({ top: globalIndex * itemHeight, behavior: "auto" });
+      const headerHeight = getHeaderHeight();
+      container.scrollTo({ top: globalIndex * itemHeight + headerHeight, behavior: "auto" });
     }, []);
 
     const handlePageChange = useCallback(
@@ -212,6 +213,7 @@ export const InfinitePaperDemo: Story = {
           style={{
             height: itemHeight,
             borderBottom: "1px solid #eee",
+            boxSizing: "border-box", // Ensure strict height
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -248,7 +250,9 @@ export const InfinitePaperDemo: Story = {
             background: "white",
           }}
         >
-          <PaginationBar items={paginationItems} onPageChange={handlePageChange} />
+          <div ref={headerRef} style={{ position: "sticky", top: 0, padding: "12px 0", background: "white", zIndex: 1 }}>
+            <Pagination items={paginationItems} onPageChange={(page) => void handlePageChange(page)} />
+          </div>
           <div style={{ paddingBottom: 12 }}>
             <div style={{ height: topSpacer }} aria-hidden />
             {items.map(renderItem)}

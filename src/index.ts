@@ -408,9 +408,9 @@ export function useInfinitePaper<T>(
       );
       setMaxAccessiblePage((prev) => Math.max(prev, furthestVisiblePage));
 
-      const nearTop = topPage <= pageWindow.startPage + prefetchThresholdPages;
+      const nearTop = topPage < pageWindow.startPage + prefetchThresholdPages;
       const nearBottom =
-        bottomPage >= pageWindow.endPage - prefetchThresholdPages;
+        bottomPage > pageWindow.endPage - prefetchThresholdPages;
 
       if (indicesAreGlobal) {
         const desiredWindow = clampWindow(
