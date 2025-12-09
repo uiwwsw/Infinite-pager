@@ -36,20 +36,6 @@ function buildPageItems(page: number, pageSize: number): string[] {
   return Array.from({ length: pageSize }, (_, index) => `Article #${start + index}`);
 }
 
-function PaginationBar({
-  items,
-  onPageChange,
-}: {
-  items: PaginationItem[];
-  onPageChange: (page: number) => Promise<void>;
-}) {
-  return (
-    <div style={{ position: "sticky", top: 0, padding: "12px 0", background: "white", zIndex: 1 }}>
-      <Pagination items={items} onPageChange={(page) => void onPageChange(page)} />
-    </div>
-  );
-}
-
 export const InfinitePaperDemo: Story = {
   args: {
     pageSize: 5,
@@ -67,7 +53,6 @@ export const InfinitePaperDemo: Story = {
   },
   render: function InfinitePaperStory(args: InfinitePaperStoryArgs) {
     const { pageSize, totalPages, windowSize, rootMargin } = args;
-    const headerRef = useRef<HTMLDivElement>(null);
     const HEADER_HEIGHT_ESTIMATE = 60;
 
     const fetchPage = useCallback(async (page: number) => {
@@ -81,11 +66,10 @@ export const InfinitePaperDemo: Story = {
       items,
       paginationItems,
       setPage,
-      pageSize: resolvedPageSize,
-      totalPages: resolvedTotalPages,
-      windowOffset,
       containerRef: hookContainerRef, // The hook provides the ref now!
       sentinelRef: hookSentinelRef,   // The hook provides the ref now!
+      topSpacerHeight,
+      bottomSpacerHeight
     } = useInfinitePaper<string>({
       pageSize,
       totalPages,
@@ -95,37 +79,6 @@ export const InfinitePaperDemo: Story = {
       itemHeight,
       headerOffset: HEADER_HEIGHT_ESTIMATE,
     });
-
-    const totalItemCount = resolvedTotalPages * resolvedPageSize;
-    // We can still use our own ref if we want, or use the one from the hook.
-    // Let's use the one from the hook for the container.
-    // But for the header, we still need our own ref to measure it if we wanted dynamic measurement.
-
-    // Note: The hook takes a static number for headerOffset currently. 
-    // If dynamic header height is critical, useSimpleScroll (advanced usage) is better.
-    // But for "Easy Mode", a static offset is usually fine.
-
-    const topSpacer = windowOffset * itemHeight;
-    const visibleHeight = items.length * itemHeight;
-    const afterSpacer = Math.max(0, totalItemCount * itemHeight - topSpacer - visibleHeight);
-
-    const scrollToGlobalIndex = useCallback((globalIndex: number) => {
-      const container = hookContainerRef.current;
-      if (!container) return;
-      container.scrollTo({ top: globalIndex * itemHeight + HEADER_HEIGHT_ESTIMATE, behavior: "auto" });
-    }, [hookContainerRef]);
-
-    const handlePageChange = useCallback(
-      async (page: number) => {
-        try {
-          const { targetGlobalIndex } = await setPage(page);
-          scrollToGlobalIndex(targetGlobalIndex);
-        } catch (e) {
-          // ignore
-        }
-      },
-      [scrollToGlobalIndex, setPage]
-    );
 
     const renderItem = useCallback(
       (item: { item?: string; isPlaceholder: boolean; globalIndex: number; page: number }) => (
@@ -166,20 +119,20 @@ export const InfinitePaperDemo: Story = {
             borderRadius: 8,
             height: 540,
             overflowY: "auto",
-            overflowAnchor: "none", // Critical: Disable browser scroll anchoring to prevent fighting with manual scroll adjustments
+            overflowAnchor: "none", // Critical: Disable browser scroll anchoring
             padding: "0 12px",
             position: "relative",
             background: "white",
           }}
         >
-          <div ref={headerRef} style={{ position: "sticky", top: 0, padding: "12px 0", background: "white", zIndex: 1 }}>
-            <Pagination items={paginationItems} onPageChange={(page) => void handlePageChange(page)} />
+          <div style={{ position: "sticky", top: 0, padding: "12px 0", background: "white", zIndex: 1 }}>
+            <Pagination items={paginationItems} onPageChange={(page) => void setPage(page)} />
           </div>
           <div style={{ paddingBottom: 12 }}>
-            <div style={{ height: topSpacer }} aria-hidden />
+            <div style={{ height: topSpacerHeight }} aria-hidden />
             {items.map(renderItem)}
             <div ref={hookSentinelRef} style={{ height: 1 }} aria-hidden />
-            <div style={{ height: afterSpacer }} aria-hidden />
+            <div style={{ height: bottomSpacerHeight }} aria-hidden />
           </div>
         </div>
       </div>

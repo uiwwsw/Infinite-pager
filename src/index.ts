@@ -121,6 +121,10 @@ export interface InfinitePaperReturn<T> {
   containerRef: RefObject<any>;
   /** Ref to attach to the intersection sentinel element. */
   sentinelRef: RefObject<any>;
+  /** Calculated height for the top spacer (when using itemHeight). */
+  topSpacerHeight: number;
+  /** Calculated height for the bottom spacer (when using itemHeight). */
+  bottomSpacerHeight: number;
 }
 
 function clampWindow(
@@ -517,13 +521,21 @@ export function useInfinitePaper<T>(
     const result = await setPage(page);
 
     if (itemHeight) {
+      // Auto-Scroll Logic
+      if (containerRef.current) {
+        const { targetGlobalIndex } = result;
+        const headerOffset = options.headerOffset ?? 0;
+        const top = targetGlobalIndex * itemHeight + headerOffset;
+        containerRef.current.scrollTo({ top, behavior: "auto" });
+      }
+
       // Re-enable after a short delay
       setTimeout(() => {
         isJumping.current = false;
       }, 100);
     }
     return result;
-  }, [itemHeight, setPage]);
+  }, [itemHeight, setPage, containerRef, options.headerOffset]);
 
   // Use the extracted scroll hook logic
   // If itemHeight is undefined, 'enabled' will be false (or effectively unused if we pass enabled=!!itemHeight)
@@ -580,6 +592,11 @@ export function useInfinitePaper<T>(
     [currentPage, maxAccessiblePage]
   );
 
+  // Calculate spacers
+  const topSpacerHeight = (itemHeight ?? 0) * windowOffset;
+  const visibleHeight = items.length * (itemHeight ?? 0);
+  const bottomSpacerHeight = Math.max(0, totalItemCount * (itemHeight ?? 0) - topSpacerHeight - visibleHeight);
+
   return {
     items,
     pageWindow,
@@ -601,6 +618,8 @@ export function useInfinitePaper<T>(
     totalPages,
     containerRef,
     sentinelRef,
+    topSpacerHeight,
+    bottomSpacerHeight,
   };
 }
 
