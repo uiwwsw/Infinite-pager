@@ -147,11 +147,11 @@ function pageFromIndex(index: number, pageSize: number): number {
 
 function buildAmazonStylePagination(
   currentPage: number,
-  maxAccessiblePage: number
+  totalPages: number
 ): PaginationItem[] {
-  if (maxAccessiblePage < 1) return [];
+  if (totalPages < 1) return [];
 
-  const clampedCurrent = Math.min(Math.max(1, currentPage), maxAccessiblePage);
+  const clampedCurrent = Math.min(Math.max(1, currentPage), totalPages);
   const items: PaginationItem[] = [];
   const addPage = (page: number) => {
     items.push({ type: "page", page, isCurrent: page === clampedCurrent });
@@ -165,7 +165,7 @@ function buildAmazonStylePagination(
   });
 
   const maxSlots = 7;
-  const total = maxAccessiblePage;
+  const total = totalPages;
 
   if (total <= maxSlots) {
     for (let page = 1; page <= total; page += 1) {
@@ -510,28 +510,31 @@ export function useInfinitePaper<T>(
   // the scroll listening and sentinel observation automatically.
 
   const totalItemCount = totalPages * pageSize;
-  const isJumping = useRef(false);
+  const [isJumping, setIsJumping] = useState(false);
 
   // When jumping (setPage), we briefly disable the scroll listener to avoid fights.
   // We wrap the user's setPage to handle this.
   const batteriesIncludedSetPage = useCallback(async (page: number) => {
     if (itemHeight) {
-      isJumping.current = true;
+      setIsJumping(true);
     }
     const result = await setPage(page);
 
     if (itemHeight) {
       // Auto-Scroll Logic
-      if (containerRef.current) {
-        const { targetGlobalIndex } = result;
-        const headerOffset = options.headerOffset ?? 0;
-        const top = targetGlobalIndex * itemHeight + headerOffset;
-        containerRef.current.scrollTo({ top, behavior: "auto" });
-      }
+      // Wait for layout update so spacers are correct
+      setTimeout(() => {
+        if (containerRef.current) {
+          const { targetGlobalIndex } = result;
+          const headerOffset = options.headerOffset ?? 0;
+          const top = targetGlobalIndex * itemHeight + headerOffset;
+          containerRef.current.scrollTo({ top, behavior: "auto" });
+        }
+      }, 0);
 
       // Re-enable after a short delay
       setTimeout(() => {
-        isJumping.current = false;
+        setIsJumping(false);
       }, 100);
     }
     return result;
@@ -544,7 +547,7 @@ export function useInfinitePaper<T>(
     itemHeight: itemHeight ?? 0,
     totalItemCount,
     handleVisibleRange,
-    enabled: !!itemHeight && !isJumping.current,
+    enabled: !!itemHeight && !isJumping,
     headerOffset: options.headerOffset ?? 0,
   });
 
@@ -588,8 +591,8 @@ export function useInfinitePaper<T>(
   }, [pageSize, pageWindow.endPage, pageWindow.startPage, pages, windowOffset]);
 
   const paginationItems = useMemo(
-    () => buildAmazonStylePagination(currentPage, maxAccessiblePage),
-    [currentPage, maxAccessiblePage]
+    () => buildAmazonStylePagination(currentPage, totalPages),
+    [currentPage, totalPages]
   );
 
   // Calculate spacers
