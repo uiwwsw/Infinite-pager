@@ -85,7 +85,8 @@ export interface InfinitePaperReturn<T> {
    */
   handleVisibleRange: (
     visibleStartIndex: number,
-    visibleStopIndex: number
+    visibleStopIndex: number,
+    indexType?: "auto" | "global" | "relative"
   ) => void;
   /** Manually invalidate and refetch a page within the current window. */
   reloadPage: (page: number) => void;
@@ -364,29 +365,55 @@ export function useInfinitePaper<T>(
   );
 
   const handleVisibleRange = useCallback(
-    (visibleStartIndex: number, visibleStopIndex: number) => {
-      // Support both window-relative and absolute indices from virtualizers.
-      // If the indices do not map inside the current window, treat them as
-      // global so that large jumps (e.g., jumping from page 1 to 1000) re-center
-      // the window in a single step instead of sliding through intermediate
-      // ranges.
+    (
+      visibleStartIndex: number,
+      visibleStopIndex: number,
+      indexType: "auto" | "global" | "relative" = "auto"
+    ) => {
       const windowLength = windowSize * pageSize;
-      const startFromWindow = windowOffset + visibleStartIndex;
-      const stopFromWindow = windowOffset + visibleStopIndex;
-      const indicesFitWindow =
-        pageFromIndex(startFromWindow, pageSize) >= pageWindow.startPage &&
-        pageFromIndex(stopFromWindow, pageSize) <= pageWindow.endPage;
-      const indicesAreGlobal =
-        !indicesFitWindow ||
-        visibleStartIndex >= windowLength ||
-        visibleStopIndex >= windowLength;
-      const globalStart = indicesAreGlobal
-        ? visibleStartIndex
-        : startFromWindow;
-      const globalStop = indicesAreGlobal ? visibleStopIndex : stopFromWindow;
+
+      let globalStart: number;
+      let globalStop: number;
+      let indicesAreGlobal: boolean;
+
+      if (indexType === "global") {
+        indicesAreGlobal = true;
+        globalStart = visibleStartIndex;
+        globalStop = visibleStopIndex;
+      } else if (indexType === "relative") {
+        indicesAreGlobal = false;
+        // If explicitly relative, we assume they are window-relative
+        globalStart = windowOffset + visibleStartIndex;
+        globalStop = windowOffset + visibleStopIndex;
+      } else {
+        // Auto detection (legacy behavior)
+        const startFromWindow = windowOffset + visibleStartIndex;
+        const stopFromWindow = windowOffset + visibleStopIndex;
+        const indicesFitWindow =
+          pageFromIndex(startFromWindow, pageSize) >= pageWindow.startPage &&
+          pageFromIndex(stopFromWindow, pageSize) <= pageWindow.endPage;
+
+        indicesAreGlobal =
+          !indicesFitWindow ||
+          visibleStartIndex >= windowLength ||
+          visibleStopIndex >= windowLength;
+
+        globalStart = indicesAreGlobal ? visibleStartIndex : startFromWindow;
+        globalStop = indicesAreGlobal ? visibleStopIndex : stopFromWindow;
+      }
+
+      // 2. Determine Logic Mode (Jump vs Scroll)
+      // If the resolved pages are NOT within the current window, we must jump.
       const topPage = pageFromIndex(globalStart, pageSize);
       const bottomPage = pageFromIndex(globalStop, pageSize);
-      let nextPage = pageFromIndex(globalStart, pageSize);
+
+      const pagesFitWindow =
+        topPage >= pageWindow.startPage &&
+        bottomPage <= pageWindow.endPage;
+
+      const shouldJump = !pagesFitWindow;
+
+      let nextPage = topPage;
 
       if (
         pendingJumpPage.current &&
@@ -412,7 +439,7 @@ export function useInfinitePaper<T>(
       const nearBottom =
         bottomPage > pageWindow.endPage - prefetchThresholdPages;
 
-      if (indicesAreGlobal) {
+      if (shouldJump) {
         const desiredWindow = clampWindow(
           nextPage,
           totalPages,

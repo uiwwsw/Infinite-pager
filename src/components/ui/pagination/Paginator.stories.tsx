@@ -141,7 +141,7 @@ export const InfinitePaperDemo: Story = {
         const rawEnd = Math.floor((scrollTop + container.clientHeight) / itemHeight);
         const end = Math.min(totalItemCount - 1, rawEnd);
 
-        handleVisibleRange(start, end);
+        handleVisibleRange(start, end, "global");
       };
 
       const onScroll = () => {
@@ -157,16 +157,14 @@ export const InfinitePaperDemo: Story = {
       };
     }, [handleVisibleRange, totalItemCount]);
 
+    // We do NOT need to manually adjust scrollTop when windowOffset changes,
+    // because we are using a topSpacer (div) that grows/shrinks exactly matching
+    // the height of the removed/added items. The browser and React handles
+    // keeping the scroll position stable relative to the document top.
+    //
+    // Previous inclusion of this logic caused "Double Compensation" which
+    // jumped the user down page by page, skipping middle pages.
     useLayoutEffect(() => {
-      const container = containerRef.current;
-      if (!container) return;
-
-      const diff = windowOffset - previousWindowOffset.current;
-      if (diff !== 0) {
-        if (!isJumping.current) {
-          container.scrollTop += diff * itemHeight;
-        }
-      }
       previousWindowOffset.current = windowOffset;
     }, [windowOffset]);
 
@@ -245,6 +243,7 @@ export const InfinitePaperDemo: Story = {
             borderRadius: 8,
             height: 540,
             overflowY: "auto",
+            overflowAnchor: "none", // Critical: Disable browser scroll anchoring to prevent fighting with manual scroll adjustments
             padding: "0 12px",
             position: "relative",
             background: "white",
