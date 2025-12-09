@@ -16,6 +16,10 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
