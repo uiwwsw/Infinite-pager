@@ -1,5 +1,5 @@
 {
-  "name": "@uiwwsw/infinitePaper",
+  "name": "@uiwwsw/infinite-paper",
   "version": "0.1.0",
   "description": "Composable infinite scroll + pagination data window manager with virtualized lists.",
   "license": "MIT",
