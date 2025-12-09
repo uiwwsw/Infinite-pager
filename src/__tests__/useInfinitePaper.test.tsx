@@ -64,6 +64,7 @@ describe("useInfinitePaper", () => {
     );
 
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.isFetching).toBe(false));
 
     await act(async () => {
       await result.current.infiniteScrollOptions.onVisible();

@@ -95,6 +95,7 @@ export const InfinitePaperDemo: Story = {
     const containerRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
     const previousWindowOffset = useRef(0);
+    const isJumping = useRef(false);
 
     const fetchPage = useCallback(async (page: number) => {
       // 인디케이터가 보일 수 있도록 약간의 지연을 추가합니다.
@@ -126,7 +127,9 @@ export const InfinitePaperDemo: Story = {
       const container = containerRef.current;
       if (!container) return undefined;
 
+      let rafId: number;
       const syncVisibleRange = () => {
+        if (isJumping.current) return;
         const start = Math.floor(container.scrollTop / itemHeight);
         const end = Math.min(
           totalItemCount - 1,
@@ -135,9 +138,17 @@ export const InfinitePaperDemo: Story = {
         handleVisibleRange(start, end);
       };
 
+      const onScroll = () => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(syncVisibleRange);
+      };
+
       syncVisibleRange();
-      container.addEventListener("scroll", syncVisibleRange);
-      return () => container.removeEventListener("scroll", syncVisibleRange);
+      container.addEventListener("scroll", onScroll);
+      return () => {
+        container.removeEventListener("scroll", onScroll);
+        cancelAnimationFrame(rafId);
+      };
     }, [handleVisibleRange, totalItemCount]);
 
     useEffect(() => {
@@ -146,7 +157,15 @@ export const InfinitePaperDemo: Story = {
 
       const diff = windowOffset - previousWindowOffset.current;
       if (diff !== 0) {
-        container.scrollTop += diff * itemHeight;
+        // Only adjust scroll if we are NOT jumping, OR if we are jumping but need to correct for window shift.
+        // Actually, if we are jumping, scrollToGlobalIndex will handle the final position.
+        // But window shift happens during render.
+        // If we are jumping, we rely on scrollToGlobalIndex to set the final scrollTop.
+        // However, if the window shifts *before* we scroll, we might need to adjust?
+        // Let's trust scrollToGlobalIndex to be called after setPage returns.
+        if (!isJumping.current) {
+             container.scrollTop += diff * itemHeight;
+        }
       }
       previousWindowOffset.current = windowOffset;
     }, [windowOffset]);
@@ -171,8 +190,17 @@ export const InfinitePaperDemo: Story = {
 
     const handlePageChange = useCallback(
       async (page: number) => {
-        const { targetGlobalIndex } = await setPage(page);
-        scrollToGlobalIndex(targetGlobalIndex);
+        isJumping.current = true;
+        try {
+            const { targetGlobalIndex } = await setPage(page);
+            scrollToGlobalIndex(targetGlobalIndex);
+            // Allow some time for scroll to settle before re-enabling sync
+            setTimeout(() => {
+                isJumping.current = false;
+            }, 100);
+        } catch (e) {
+            isJumping.current = false;
+        }
       },
       [scrollToGlobalIndex, setPage]
     );

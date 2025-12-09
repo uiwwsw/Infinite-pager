@@ -1,0 +1,15 @@
+User Request:
+리드미를 읽고 지금 작동되게끔 만들어줘.
+1. 배포 시 자동으로 npm registry에 올라가야한다.
+2. 그건 인피니트스크롤 + 페이지네이션이다.
+2-1 페이지네이션만 클릭해도 정상 작동(스크롤이동) 2-2스크롤이동해도 페이지네이션 싱크맞춤 이 정상 작동해야됨.
+3. 최적화 해야됨.
+4. 스토리북 작동해야됨.
+새로 개선할 부분 있으면 전면 수정해줘.
+
+Plan:
+1. Analyze Codebase.
+2. Fix Infinite Scroll + Pagination.
+3. Optimization.
+4. Storybook.
+5. NPM Publishing.

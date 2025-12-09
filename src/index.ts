@@ -227,47 +227,6 @@ export function useInfinitePaper<T>(
     });
   }, [pageWindow.endPage, pageWindow.startPage]);
 
-  const loadPage = useCallback(
-    async (page: number) => {
-      let shouldFetch = true;
-      setPages((prev) => {
-        const existing = prev.get(page);
-        if (existing && existing.status === "loading") {
-          shouldFetch = false;
-          return prev;
-        }
-        const next = new Map(prev);
-        next.set(page, { page, status: "loading" });
-        return next;
-      });
-      if (!shouldFetch) return;
-
-      try {
-        const items = await fetchPage(page);
-        setPages((prev) => {
-          const existing = prev.get(page);
-          if (!existing) return prev;
-          const next = new Map(prev);
-          next.set(page, {
-            page,
-            status: "loaded",
-            items,
-          });
-          return next;
-        });
-      } catch (error) {
-        setPages((prev) => {
-          const existing = prev.get(page);
-          if (!existing) return prev;
-          const next = new Map(prev);
-          next.set(page, { page, status: "error", error });
-          return next;
-        });
-      }
-    },
-    [fetchPage]
-  );
-
   // Fetch missing pages whenever the window changes.
   useEffect(() => {
     const missing: number[] = [];
@@ -279,10 +238,44 @@ export function useInfinitePaper<T>(
     });
     if (missing.length === 0) return;
 
+    // Batch "loading" state update
+    setPages((prev) => {
+      const next = new Map(prev);
+      let changed = false;
+      missing.forEach((page) => {
+        const existing = next.get(page);
+        if (!existing || existing.status !== "loading") {
+          next.set(page, { page, status: "loading" });
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+
     let cancelled = false;
     setIsFetching(true);
+
     (async () => {
-      await Promise.all(missing.map((page) => loadPage(page)));
+      await Promise.all(
+        missing.map(async (page) => {
+          try {
+            const items = await fetchPage(page);
+            if (cancelled) return;
+            setPages((prev) => {
+              const next = new Map(prev);
+              next.set(page, { page, status: "loaded", items });
+              return next;
+            });
+          } catch (error) {
+            if (cancelled) return;
+            setPages((prev) => {
+              const next = new Map(prev);
+              next.set(page, { page, status: "error", error });
+              return next;
+            });
+          }
+        })
+      );
       if (!cancelled) {
         setIsFetching(false);
       }
@@ -291,7 +284,7 @@ export function useInfinitePaper<T>(
     return () => {
       cancelled = true;
     };
-  }, [loadPage, pageWindow.endPage, pageWindow.startPage, pages]);
+  }, [fetchPage, pageWindow.endPage, pageWindow.startPage, pages]);
 
   // Keep isFetching in sync when all pages are already loaded/loading state flips.
   useEffect(() => {
