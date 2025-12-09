@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import useInfinitePaper, { Pagination } from "../../../index";
 import type { PaginationItem } from "../../../paginationTypes";
 
@@ -151,7 +151,7 @@ export const InfinitePaperDemo: Story = {
       };
     }, [handleVisibleRange, totalItemCount]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const container = containerRef.current;
       if (!container) return;
 
@@ -164,7 +164,7 @@ export const InfinitePaperDemo: Story = {
         // However, if the window shifts *before* we scroll, we might need to adjust?
         // Let's trust scrollToGlobalIndex to be called after setPage returns.
         if (!isJumping.current) {
-             container.scrollTop += diff * itemHeight;
+          container.scrollTop += diff * itemHeight;
         }
       }
       previousWindowOffset.current = windowOffset;
@@ -185,21 +185,21 @@ export const InfinitePaperDemo: Story = {
     const scrollToGlobalIndex = useCallback((globalIndex: number) => {
       const container = containerRef.current;
       if (!container) return;
-      container.scrollTo({ top: globalIndex * itemHeight, behavior: "smooth" });
+      container.scrollTo({ top: globalIndex * itemHeight, behavior: "auto" });
     }, []);
 
     const handlePageChange = useCallback(
       async (page: number) => {
         isJumping.current = true;
         try {
-            const { targetGlobalIndex } = await setPage(page);
-            scrollToGlobalIndex(targetGlobalIndex);
-            // Allow some time for scroll to settle before re-enabling sync
-            setTimeout(() => {
-                isJumping.current = false;
-            }, 100);
-        } catch (e) {
+          const { targetGlobalIndex } = await setPage(page);
+          scrollToGlobalIndex(targetGlobalIndex);
+          // Allow some time for scroll to settle before re-enabling sync
+          setTimeout(() => {
             isJumping.current = false;
+          }, 50);
+        } catch (e) {
+          isJumping.current = false;
         }
       },
       [scrollToGlobalIndex, setPage]
