@@ -108,6 +108,35 @@ export const InfinitePaperDemo: Story = {
 
     return (
       <div style={{ width: 460, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+        <style>
+          {`
+            .pagination-container button {
+              padding: 6px 12px;
+              border: 1px solid #e5e7eb;
+              background: #fff;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              color: #374151;
+              transition: all 0.2s;
+            }
+            .pagination-container button:hover:not(:disabled):not([aria-current="page"]) {
+              background: #f9fafb;
+              border-color: #d1d5db;
+            }
+            .pagination-container button:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            .pagination-container button[aria-current="page"] {
+                font-weight: 600;
+                background-color: #2563eb;
+                color: white;
+                border-color: #2563eb;
+                box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+            }
+          `}
+        </style>
         <h3 style={{ margin: 0, marginBottom: 8 }}>InfinitePaper Demo</h3>
         <p style={{ marginTop: 0, color: "#6b7280", lineHeight: 1.4 }}>
           스크롤을 내려보며 자동 페이지 로딩과 페이지네이션 점프를 함께 체험하세요.
@@ -126,7 +155,7 @@ export const InfinitePaperDemo: Story = {
           }}
         >
           <div style={{ position: "sticky", top: 0, padding: "12px 0", background: "white", zIndex: 1 }}>
-            <Pagination items={paginationItems} onPageChange={(page) => void setPage(page)} />
+            <Pagination className="pagination-container" items={paginationItems} onPageChange={(page) => void setPage(page)} />
           </div>
           <div style={{ paddingBottom: 12 }}>
             <div style={{ height: topSpacerHeight }} aria-hidden />
