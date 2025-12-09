@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import useInfinitePaper, { Pagination } from "../../../index";
 import type { PaginationItem } from "../../../paginationTypes";
 
@@ -36,31 +36,6 @@ function buildPageItems(page: number, pageSize: number): string[] {
   return Array.from({ length: pageSize }, (_, index) => `Article #${start + index}`);
 }
 
-function useIntersectionSentinel(
-  sentinel: Element | null,
-  options: { root?: Element | null; rootMargin?: string; onVisible: () => void }
-) {
-  const { root, rootMargin, onVisible } = options;
-
-  useEffect(() => {
-    if (!sentinel) return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            onVisible();
-          }
-        });
-      },
-      { root: root ?? undefined, rootMargin }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [onVisible, root, rootMargin, sentinel]);
-}
-
 function PaginationBar({
   items,
   onPageChange,
@@ -92,10 +67,8 @@ export const InfinitePaperDemo: Story = {
   },
   render: function InfinitePaperStory(args: InfinitePaperStoryArgs) {
     const { pageSize, totalPages, windowSize, rootMargin } = args;
-    const containerRef = useRef<HTMLDivElement>(null);
-    const sentinelRef = useRef<HTMLDivElement>(null);
-    const previousWindowOffset = useRef(0);
-    const isJumping = useRef(false);
+    const headerRef = useRef<HTMLDivElement>(null);
+    const HEADER_HEIGHT_ESTIMATE = 60;
 
     const fetchPage = useCallback(async (page: number) => {
       // 인디케이터가 보일 수 있도록 약간의 지연을 추가합니다.
@@ -103,102 +76,52 @@ export const InfinitePaperDemo: Story = {
       return buildPageItems(page, pageSize);
     }, [pageSize]);
 
+    // With the new API, we just pass itemHeight and headerOffset!
     const {
       items,
       paginationItems,
-      handleVisibleRange,
-      infiniteScrollOptions,
       setPage,
       pageSize: resolvedPageSize,
       totalPages: resolvedTotalPages,
       windowOffset,
+      containerRef: hookContainerRef, // The hook provides the ref now!
+      sentinelRef: hookSentinelRef,   // The hook provides the ref now!
     } = useInfinitePaper<string>({
       pageSize,
       totalPages,
       windowSize,
       fetchPage,
       rootMargin,
+      itemHeight,
+      headerOffset: HEADER_HEIGHT_ESTIMATE,
     });
 
     const totalItemCount = resolvedTotalPages * resolvedPageSize;
-    const headerRef = useRef<HTMLDivElement>(null);
+    // We can still use our own ref if we want, or use the one from the hook.
+    // Let's use the one from the hook for the container.
+    // But for the header, we still need our own ref to measure it if we wanted dynamic measurement.
 
-    const getHeaderHeight = () => headerRef.current?.clientHeight ?? 0;
-
-    useEffect(() => {
-      const container = containerRef.current;
-      if (!container) return undefined;
-
-      let rafId: number;
-      const syncVisibleRange = () => {
-        if (isJumping.current) return;
-        const headerHeight = getHeaderHeight();
-        // Adjust for header
-        const scrollTop = Math.max(0, container.scrollTop - headerHeight);
-
-        const start = Math.floor(scrollTop / itemHeight);
-        // Ensure we don't calculate beyond total items
-        const rawEnd = Math.floor((scrollTop + container.clientHeight) / itemHeight);
-        const end = Math.min(totalItemCount - 1, rawEnd);
-
-        handleVisibleRange(start, end, "global");
-      };
-
-      const onScroll = () => {
-        cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(syncVisibleRange);
-      };
-
-      syncVisibleRange();
-      container.addEventListener("scroll", onScroll);
-      return () => {
-        container.removeEventListener("scroll", onScroll);
-        cancelAnimationFrame(rafId);
-      };
-    }, [handleVisibleRange, totalItemCount]);
-
-    // We do NOT need to manually adjust scrollTop when windowOffset changes,
-    // because we are using a topSpacer (div) that grows/shrinks exactly matching
-    // the height of the removed/added items. The browser and React handles
-    // keeping the scroll position stable relative to the document top.
-    //
-    // Previous inclusion of this logic caused "Double Compensation" which
-    // jumped the user down page by page, skipping middle pages.
-    useLayoutEffect(() => {
-      previousWindowOffset.current = windowOffset;
-    }, [windowOffset]);
-
-    useIntersectionSentinel(sentinelRef.current, {
-      root: infiniteScrollOptions.root ?? containerRef.current,
-      rootMargin: infiniteScrollOptions.rootMargin,
-      onVisible: () => {
-        void infiniteScrollOptions.onVisible();
-      },
-    });
+    // Note: The hook takes a static number for headerOffset currently. 
+    // If dynamic header height is critical, useSimpleScroll (advanced usage) is better.
+    // But for "Easy Mode", a static offset is usually fine.
 
     const topSpacer = windowOffset * itemHeight;
     const visibleHeight = items.length * itemHeight;
     const afterSpacer = Math.max(0, totalItemCount * itemHeight - topSpacer - visibleHeight);
 
     const scrollToGlobalIndex = useCallback((globalIndex: number) => {
-      const container = containerRef.current;
+      const container = hookContainerRef.current;
       if (!container) return;
-      const headerHeight = getHeaderHeight();
-      container.scrollTo({ top: globalIndex * itemHeight + headerHeight, behavior: "auto" });
-    }, []);
+      container.scrollTo({ top: globalIndex * itemHeight + HEADER_HEIGHT_ESTIMATE, behavior: "auto" });
+    }, [hookContainerRef]);
 
     const handlePageChange = useCallback(
       async (page: number) => {
-        isJumping.current = true;
         try {
           const { targetGlobalIndex } = await setPage(page);
           scrollToGlobalIndex(targetGlobalIndex);
-          // Allow some time for scroll to settle before re-enabling sync
-          setTimeout(() => {
-            isJumping.current = false;
-          }, 50);
         } catch (e) {
-          isJumping.current = false;
+          // ignore
         }
       },
       [scrollToGlobalIndex, setPage]
@@ -237,7 +160,7 @@ export const InfinitePaperDemo: Story = {
           스크롤을 내려보며 자동 페이지 로딩과 페이지네이션 점프를 함께 체험하세요.
         </p>
         <div
-          ref={containerRef}
+          ref={hookContainerRef}
           style={{
             border: "1px solid #e5e7eb",
             borderRadius: 8,
@@ -255,7 +178,7 @@ export const InfinitePaperDemo: Story = {
           <div style={{ paddingBottom: 12 }}>
             <div style={{ height: topSpacer }} aria-hidden />
             {items.map(renderItem)}
-            <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
+            <div ref={hookSentinelRef} style={{ height: 1 }} aria-hidden />
             <div style={{ height: afterSpacer }} aria-hidden />
           </div>
         </div>

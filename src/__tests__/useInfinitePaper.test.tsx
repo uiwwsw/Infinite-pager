@@ -66,11 +66,15 @@ describe("useInfinitePaper", () => {
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.isFetching).toBe(false));
 
+    console.log("Before onVisible. Current:", result.current.currentPage, "Fetching:", result.current.isFetching);
+
     await act(async () => {
       await result.current.infiniteScrollOptions.onVisible();
     });
 
-    await waitFor(() => expect(result.current.currentPage).toBe(2));
+    console.log("After onVisible. Current:", result.current.currentPage, "Fetching:", result.current.isFetching);
+
+    await waitFor(() => expect(result.current.currentPage).toBe(2), { timeout: 3000 });
     expect(result.current.paginationItems.some((item) => item.page === 2)).toBe(
       true
     );

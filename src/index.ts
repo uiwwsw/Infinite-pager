@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { PaginationItem } from "./paginationTypes";
+import { useIntersectionSentinel } from "./hooks/useIntersectionSentinel";
+import { useSimpleScroll } from "./hooks/useSimpleScroll";
 
 export type PageStatus = "idle" | "loading" | "loaded" | "error";
 
@@ -41,6 +43,19 @@ export interface InfinitePaperOptions<T> {
    * Root margin to use for the intersection observer helpers. Defaults to undefined.
    */
   rootMargin?: string;
+  /**
+   * If provided, the hook will automatically attach scroll listeners to the container
+   * and calculate visible pages based on this fixed item height.
+   */
+  itemHeight?: number;
+  /**
+   * Optional ref for the container. If not provided, one will be created and returned.
+   */
+  containerRef?: RefObject<HTMLElement>;
+  /**
+   * Optional offset to subtract from scrollTop (e.g. for sticky headers). Defaults to 0.
+   */
+  headerOffset?: number;
 }
 
 export interface PaperItem<T> {
@@ -102,6 +117,10 @@ export interface InfinitePaperReturn<T> {
   infiniteScrollOptions: { onVisible: () => Promise<void>; root: Element | null; rootMargin?: string };
   pageSize: number;
   totalPages: number;
+  /** Ref to attach to the scroll container. */
+  containerRef: RefObject<any>;
+  /** Ref to attach to the intersection sentinel element. */
+  sentinelRef: RefObject<any>;
 }
 
 function clampWindow(
@@ -192,6 +211,8 @@ export function useInfinitePaper<T>(
     onPageChange,
     scrollContainer = null,
     rootMargin,
+    itemHeight,
+    containerRef: userContainerRef,
   } = options;
 
   const [pageWindow, setPageWindow] = useState<PageWindow>(() =>
@@ -202,6 +223,11 @@ export function useInfinitePaper<T>(
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [maxAccessiblePage, setMaxAccessiblePage] = useState<number>(initialPage);
   const pendingJumpPage = useRef<number | null>(null);
+
+  // Internal refs for "batteries-included" mode
+  const internalContainerRef = useRef<HTMLElement>(null);
+  const sentinelRef = useRef<HTMLElement>(null);
+  const containerRef = userContainerRef || internalContainerRef;
 
   const windowOffset = useMemo(
     () => (pageWindow.startPage - 1) * pageSize,
@@ -475,6 +501,53 @@ export function useInfinitePaper<T>(
     ]
   );
 
+  // --- Batteries Included Logic ---
+  // If itemHeight is provided, we assume the user wants the hook to handle
+  // the scroll listening and sentinel observation automatically.
+
+  const totalItemCount = totalPages * pageSize;
+  const isJumping = useRef(false);
+
+  // When jumping (setPage), we briefly disable the scroll listener to avoid fights.
+  // We wrap the user's setPage to handle this.
+  const batteriesIncludedSetPage = useCallback(async (page: number) => {
+    if (itemHeight) {
+      isJumping.current = true;
+    }
+    const result = await setPage(page);
+
+    if (itemHeight) {
+      // Re-enable after a short delay
+      setTimeout(() => {
+        isJumping.current = false;
+      }, 100);
+    }
+    return result;
+  }, [itemHeight, setPage]);
+
+  // Use the extracted scroll hook logic
+  // If itemHeight is undefined, 'enabled' will be false (or effectively unused if we pass enabled=!!itemHeight)
+  useSimpleScroll({
+    containerRef: containerRef as RefObject<HTMLElement>,
+    itemHeight: itemHeight ?? 0,
+    totalItemCount,
+    handleVisibleRange,
+    enabled: !!itemHeight && !isJumping.current,
+    headerOffset: options.headerOffset ?? 0,
+  });
+
+  // Use the extracted sentinel hook logic
+  useIntersectionSentinel(sentinelRef.current, {
+    root: infiniteScrollOptions.root,
+    rootMargin: infiniteScrollOptions.rootMargin,
+    onVisible: () => {
+      // Only trigger if enabled
+      if (itemHeight) {
+        void infiniteScrollOptions.onVisible();
+      }
+    },
+  });
+
   const items = useMemo<PaperItem<T>[]>(() => {
     const result: PaperItem<T>[] = [];
     let offset = 0;
@@ -515,7 +588,7 @@ export function useInfinitePaper<T>(
     isFetching,
     pages,
     scrollToPage,
-    setPage,
+    setPage: batteriesIncludedSetPage, // Use the wrapped version
     goToNextPage,
     handleVisibleRange,
     reloadPage,
@@ -526,6 +599,8 @@ export function useInfinitePaper<T>(
     infiniteScrollOptions,
     pageSize,
     totalPages,
+    containerRef,
+    sentinelRef,
   };
 }
 
@@ -533,3 +608,5 @@ export default useInfinitePaper;
 export { Pagination } from "./components/Pagination";
 export type { PaginationProps } from "./components/Pagination";
 export type { PaginationItem, PaginationItemType } from "./paginationTypes";
+export { useIntersectionSentinel } from "./hooks/useIntersectionSentinel";
+export { useSimpleScroll } from "./hooks/useSimpleScroll";
