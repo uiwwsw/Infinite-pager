@@ -210,7 +210,9 @@ export function useInfinitePaper<T>(
   // Keep the pages map aligned with the current window (add missing placeholders, drop out of range).
   useEffect(() => {
     setPages((prev) => {
+      let changed = false;
       const next = new Map<number, PageRecord<T>>();
+
       for (
         let page = pageWindow.startPage;
         page <= pageWindow.endPage;
@@ -221,9 +223,16 @@ export function useInfinitePaper<T>(
           next.set(page, existing);
         } else {
           next.set(page, { page, status: "idle" });
+          changed = true;
         }
       }
-      return next;
+
+      // Check if any pages were removed (out of window)
+      if (!changed && prev.size !== next.size) {
+        changed = true;
+      }
+
+      return changed ? next : prev;
     });
   }, [pageWindow.endPage, pageWindow.startPage]);
 

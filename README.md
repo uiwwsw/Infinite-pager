@@ -1,164 +1,146 @@
-# @uiwwsw/infinitePaper
+# Infinite Paper 📜
 
-A headless React helper that marries infinite scroll and numbered pagination without keeping the entire dataset in memory. It maintains a sliding window of contiguous pages, fetches only what is needed, and exposes helpers you can plug into any virtualized list (e.g. `react-window`, `react-virtual`).
+[![npm version](https://img.shields.io/npm/v/@uiwwsw/infinitePaper.svg)](https://www.npmjs.com/package/@uiwwsw/infinitePaper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/uiwwsw/Infinite-pager/actions/workflows/ci.yml/badge.svg)](https://github.com/uiwwsw/Infinite-pager/actions/workflows/ci.yml)
 
-## Features
+**Infinite Paper** is a powerful, headless React hook that seamlessly bridges the gap between **infinite scrolling** and **numbered pagination**. It allows you to maintain a sliding window of contiguous pages in memory, ensuring high performance even with massive datasets.
 
-- **Contiguous page window**: keeps a limited, gap-free range of pages in memory so you never render disjoint data (e.g. page 5 next to page 99).
-- **Jump without over-fetching**: `scrollToPage` recenters the window around the target page instead of loading everything in between.
-- **Viewport-aware**: `handleVisibleRange` converts virtual list indices into the current page and shifts the window when you approach the edges.
-- **Placeholder-friendly**: exposes `isPlaceholder` on each item so you can render skeleton rows while the page is loading.
-- **Built-in pagination UI**: includes a lightweight `Pagination` component wired to the hook's pagination data.
+> **Note**: This library is headless. You provide the UI (buttons, scroll container), and `useInfinitePaper` handles the logic.
 
-## Installation
+---
+
+## 🌏 Language / 언어
+
+- [English](#english)
+- [한국어 (Korean)](#한국어-korean)
+
+---
+
+<a name="english"></a>
+## English
+
+### Features
+
+- **🧠 Smart Memory Management**: Keeps only a configurable "window" of pages in memory. No more crashing the browser with 10,000 DOM nodes.
+- **🔄 Bi-directional Sync**: Scrolling updates the pagination; clicking pagination updates the scroll position.
+- **🚀 Performance Optimized**: Batched state updates and efficient re-rendering strategies.
+- **🧩 Headless & Flexible**: Works with `react-window`, `react-virtual`, or standard CSS overflow scrolling.
+- **🛒 Amazon-style Pagination**: Includes logic for "1 ... 4 5 6 ... 100" style pagination controls.
+
+### Installation
 
 ```bash
 npm install @uiwwsw/infinitePaper
+# or
+yarn add @uiwwsw/infinitePaper
+# or
+pnpm add @uiwwsw/infinitePaper
 ```
 
-Peer dependency: React 17+.
-
-## Quick start
+### Usage
 
 ```tsx
-import { FixedSizeList } from "react-window";
 import useInfinitePaper, { Pagination } from "@uiwwsw/infinitePaper";
 
-function Example() {
-  const pageSize = 20;
-
-  const infinite = useInfinitePaper({
-    pageSize,
-    totalPages: 120,
-    windowSize: 10,
-    initialPage: 1,
+function App() {
+  const { 
+    items, 
+    paginationItems, 
+    handleVisibleRange, 
+    setPage,
+    infiniteScrollOptions 
+  } = useInfinitePaper({
+    pageSize: 20,
+    totalPages: 100,
     fetchPage: async (page) => {
-      const res = await fetch(`/items?page=${page}&pageSize=${pageSize}`);
-      const data = await res.json();
-      return data.items; // must match pageSize length
-    },
-    onPageChange: (page) => console.log("now on page", page),
+      const res = await fetch(`/api/items?page=${page}`);
+      return res.json();
+    }
   });
 
   return (
     <div>
-      <button onClick={() => infinite.scrollToPage(100)}>Jump to 100</button>
-      <FixedSizeList
-        height={520}
-        itemCount={infinite.items.length}
-        itemSize={52}
-        onItemsRendered={({ visibleStartIndex, visibleStopIndex }) =>
-          infinite.handleVisibleRange(visibleStartIndex, visibleStopIndex)
-        }
-      >
-        {({ index, style }) => {
-          const row = infinite.items[index];
-          return (
-            <div style={style}>
-              {row.isPlaceholder ? "Loading…" : `#${row.globalIndex + 1}: ${row.item}`}
-            </div>
-          );
-        }}
-      </FixedSizeList>
+      {/* Your Virtual List or Scroll Container */}
+      <div onScroll={(e) => {
+         // Calculate visible range and call handleVisibleRange
+      }}>
+        {items.map(item => <div key={item.globalIndex}>{item.item}</div>)}
+      </div>
 
-      <Pagination
-        items={infinite.paginationItems}
-        onPageChange={(page) => infinite.scrollToPage(page)}
+      {/* Pagination Controls */}
+      <Pagination 
+        items={paginationItems} 
+        onPageChange={setPage} 
       />
     </div>
   );
 }
 ```
 
-### Implementing pagination buttons
+---
+
+<a name="한국어-korean"></a>
+## 한국어 (Korean)
+
+### 주요 기능
+
+- **🧠 스마트 메모리 관리**: 설정된 "윈도우" 크기만큼의 페이지만 메모리에 유지합니다. 대용량 데이터도 브라우저 부하 없이 처리할 수 있습니다.
+- **🔄 양방향 동기화**: 스크롤하면 페이지네이션이 업데이트되고, 페이지네이션을 클릭하면 스크롤 위치가 이동합니다.
+- **🚀 성능 최적화**: 상태 업데이트 배치 처리 및 효율적인 리렌더링 전략이 적용되었습니다.
+- **🧩 헤드리스 & 유연성**: `react-window`, `react-virtual` 또는 일반 CSS 스크롤과 완벽하게 호환됩니다.
+- **🛒 아마존 스타일 페이지네이션**: "1 ... 4 5 6 ... 100" 형태의 페이지네이션 로직을 내장하고 있습니다.
+
+### 설치 방법
+
+```bash
+npm install @uiwwsw/infinitePaper
+# 또는
+yarn add @uiwwsw/infinitePaper
+# 또는
+pnpm add @uiwwsw/infinitePaper
+```
+
+### 사용 예시
 
 ```tsx
-function Pager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>> }) {
+import useInfinitePaper, { Pagination } from "@uiwwsw/infinitePaper";
+
+function App() {
+  const { 
+    items, 
+    paginationItems, 
+    handleVisibleRange, 
+    setPage,
+    infiniteScrollOptions 
+  } = useInfinitePaper({
+    pageSize: 20,
+    totalPages: 100,
+    fetchPage: async (page) => {
+      const res = await fetch(`/api/items?page=${page}`);
+      return res.json();
+    }
+  });
+
   return (
     <div>
-      <button onClick={() => infinite.scrollToPage(Math.max(1, infinite.currentPage - 1))}>
-        Prev
-      </button>
-      <span>
-        {infinite.currentPage} / {infinite.totalPages}
-      </span>
-      <button
-        onClick={() => infinite.scrollToPage(Math.min(infinite.totalPages, infinite.currentPage + 1))}
-      >
-        Next
-      </button>
+      {/* 가상 리스트 또는 스크롤 컨테이너 */}
+      <div onScroll={(e) => {
+         // 보이는 범위를 계산하여 handleVisibleRange 호출
+      }}>
+        {items.map(item => <div key={item.globalIndex}>{item.item}</div>)}
+      </div>
+
+      {/* 페이지네이션 컨트롤 */}
+      <Pagination 
+        items={paginationItems} 
+        onPageChange={setPage} 
+      />
     </div>
   );
 }
 ```
 
-### Amazon-style pagination data
-
-`useInfinitePaper` keeps track of the highest page the user has actually scrolled to.
-The `paginationItems` field exposes a list of Amazon-like pagination controls that
-only become clickable after the user has visited them through scrolling. This
-prevents showing deep links like “1000” before the user has progressed that far
-in the scroll experience.
-
-```tsx
-function AmazonPager({ infinite }: { infinite: ReturnType<typeof useInfinitePaper<any>> }) {
-  return (
-    <nav aria-label="Pagination">
-      {infinite.paginationItems.map((item, index) => {
-        if (item.type === "ellipsis") return <span key={index}>…</span>;
-        return (
-          <button
-            key={index}
-            disabled={item.disabled}
-            aria-current={item.isCurrent || undefined}
-            onClick={() => item.page && infinite.scrollToPage(item.page)}
-          >
-            {item.type === "prev" && "Prev"}
-            {item.type === "next" && "Next"}
-            {item.type === "page" && item.page}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-```
-
-### Key concepts
-
-- **Window size**: `windowSize` controls how many pages stay in memory at once. The window always remains contiguous.
-- **Window offset**: `windowOffset` tells you the global index of the first item in the window. Use it if you need to align external scroll positions.
-- **Visible range callback**: `handleVisibleRange` translates the visible indices into a page number, triggers `onPageChange`, and recenters the window when you scroll near its edges. It accepts either indices relative to the current window _or_ absolute indices from virtualizers configured with the total item count.
-- **Jumping**: `scrollToPage(page)` recenters around `page` and returns the global index for that page so you can `scrollToItem` in your virtual list.
-
-## API
-
-`useInfinitePaper<T>(options)` returns:
-
-- `items: PaperItem<T>[]` – flattened items for the current window. Each item includes `page`, `indexInPage`, `globalIndex`, `item`, and `isPlaceholder`.
-- `pageWindow: { startPage; endPage }` – the inclusive range kept in memory.
-- `currentPage: number` – derived from viewport callbacks or direct jumps.
-- `windowOffset: number` – global index of the first item in the window.
-- `isFetching: boolean` – true while any page in the window is loading.
-- `pages: Map<number, PageRecord<T>>` – raw page states (status, items, error).
-- `scrollToPage(page)` – recenters the window; returns `{ targetGlobalIndex }`.
-- `handleVisibleRange(start, stop)` – feed this the visible item indices from your virtual list.
-- `setPage(page)` / `goToNextPage()` – convenience wrappers around `scrollToPage` for button or keyboard handlers.
-- `onVisibleBottom()` – helper you can pass to an infinite scroll sentinel; uses the pagination rules in this hook.
-- `hasNextPage` – whether another page exists beyond `currentPage`.
-- `infiniteScrollOptions` – `{ onVisible, root, rootMargin }` prepared for an `IntersectionObserver` sentinel.
-- `reloadPage(page)` – marks a page as idle so it refetches next render cycle.
-- `pageSize` and `totalPages` – echoed for convenience.
-
-`PageRecord` statuses: `"idle" | "loading" | "loaded" | "error"`.
-
-## Design notes
-
-- Keeps only contiguous pages in memory to avoid “page 5 + page 99” discontinuities.
-- Prefetches when you approach the current window edges (configurable via `prefetchThresholdPages`).
-- Exposes placeholders so you can render skeletons while remote data loads.
-- Works with any virtual list; you control the DOM and scrolling strategy.
-
 ## License
 
-MIT
+MIT © [uiwwsw](https://github.com/uiwwsw)
