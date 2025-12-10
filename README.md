@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/uiwwsw/Infinite-pager/actions/workflows/ci.yml/badge.svg)](https://github.com/uiwwsw/Infinite-pager/actions/workflows/ci.yml)
 
+[**🚀 Live Demo**](https://infinite-pager.vercel.app/)
+
 **Infinite Paper** is a powerful, headless React hook that seamlessly bridges the gap between **infinite scrolling** and **numbered pagination**. It allows you to maintain a sliding window of contiguous pages in memory, ensuring high performance even with massive datasets.
 
 > **Note**: This library is headless. You provide the UI (buttons, scroll container), and `useInfinitePaper` handles the logic.
